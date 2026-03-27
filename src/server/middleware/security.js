@@ -5,10 +5,10 @@ export const securityHeaders = helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "https://challenges.cloudflare.com"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:'],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
+      imgSrc: ["'self'", 'data:', "https://challenges.cloudflare.com"],
       connectSrc: ["'self'", "https://challenges.cloudflare.com"],
-      fontSrc: ["'self'"],
+      fontSrc: ["'self'", "https://challenges.cloudflare.com"],
       frameSrc: ["'self'", "https://challenges.cloudflare.com"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
