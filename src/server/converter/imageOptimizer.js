@@ -1,4 +1,6 @@
 import sharp from 'sharp';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Max width for images in a Word document (letter page ~6.5" printable at 150 DPI)
 const MAX_WIDTH_PX = 975;
@@ -6,18 +8,18 @@ const MAX_HEIGHT_PX = 1200;
 const JPEG_QUALITY = 80;
 const PNG_COMPRESSION = 9;
 
-// Optimize an image buffer for embedding in a Word document.
-// - Resizes if larger than page dimensions
-// - Compresses JPEG/PNG
-// - Converts large PNGs (photos) to JPEG for better compression
-export async function optimizeImage(buffer) {
-  if (!buffer || buffer.length === 0) return buffer;
+// Optimize an image file on disk in-place.
+// Reads from filePath, writes optimized version back to the same path.
+export async function optimizeImageFile(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return;
 
   try {
-    const image = sharp(buffer);
+    const image = sharp(filePath);
     const metadata = await image.metadata();
 
-    if (!metadata.width || !metadata.height) return buffer;
+    if (!metadata.width || !metadata.height) return;
+
+    const originalSize = fs.statSync(filePath).size;
 
     let pipeline = image;
 
@@ -29,38 +31,38 @@ export async function optimizeImage(buffer) {
       });
     }
 
-    // Choose output format:
-    // - Small PNGs (icons, diagrams with transparency) stay PNG
-    // - Large PNGs that are likely photos convert to JPEG
-    // - JPEGs stay JPEG with quality compression
+    // Choose output format
     const isJpeg = metadata.format === 'jpeg' || metadata.format === 'jpg';
     const isPng = metadata.format === 'png';
-    const isLargeImage = buffer.length > 100 * 1024; // > 100KB
+    const isLargeImage = originalSize > 100 * 1024;
 
-    let optimized;
+    // Write to a temp file, then replace original only if smaller
+    const tmpPath = filePath + '.opt';
     if (isJpeg) {
-      optimized = await pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
+      await pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toFile(tmpPath);
     } else if (isPng && isLargeImage && !metadata.hasAlpha) {
-      // Large opaque PNG → convert to JPEG for much better compression
-      optimized = await pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
+      await pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toFile(tmpPath);
     } else if (isPng) {
-      optimized = await pipeline.png({ compressionLevel: PNG_COMPRESSION }).toBuffer();
+      await pipeline.png({ compressionLevel: PNG_COMPRESSION }).toFile(tmpPath);
     } else {
-      // Other formats (GIF, WebP, etc.) → convert to PNG
-      optimized = await pipeline.png({ compressionLevel: PNG_COMPRESSION }).toBuffer();
+      await pipeline.png({ compressionLevel: PNG_COMPRESSION }).toFile(tmpPath);
     }
 
-    // Only use optimized version if it's actually smaller
-    return optimized.length < buffer.length ? optimized : buffer;
+    const optimizedSize = fs.statSync(tmpPath).size;
+    if (optimizedSize < originalSize) {
+      fs.renameSync(tmpPath, filePath);
+    } else {
+      fs.unlinkSync(tmpPath);
+    }
   } catch {
-    // If sharp fails (corrupted image, unsupported format), return original
-    return buffer;
+    // If sharp fails, keep original file untouched
+    const tmpPath = filePath + '.opt';
+    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
   }
 }
 
-// Walk parsed data and optimize all image buffers in place.
-// Processes in batches of 5 to limit concurrent memory usage from sharp.
-// Uses allSettled so a single failed image doesn't break the batch.
+// Walk parsed data and optimize all image files on disk.
+// Processes in batches of 5 to limit concurrent disk I/O.
 const IMAGE_BATCH_SIZE = 5;
 
 export async function optimizeImages(parsedData) {
@@ -68,7 +70,7 @@ export async function optimizeImages(parsedData) {
 
   function walk(elements) {
     for (const el of elements) {
-      if (el.type === 'image' && el.imageBuffer) {
+      if (el.type === 'image' && el.imageFile) {
         items.push(el);
       } else if (el.type === 'group' && el.elements) {
         walk(el.elements);
@@ -80,18 +82,11 @@ export async function optimizeImages(parsedData) {
     walk(slide.elements);
   }
 
-  // Process in batches to avoid OOM with many large images
   for (let i = 0; i < items.length; i += IMAGE_BATCH_SIZE) {
     const batch = items.slice(i, i + IMAGE_BATCH_SIZE);
-    const results = await Promise.allSettled(
-      batch.map(el => optimizeImage(el.imageBuffer))
+    await Promise.allSettled(
+      batch.map(el => optimizeImageFile(el.imageFile))
     );
-    for (let j = 0; j < batch.length; j++) {
-      if (results[j].status === 'fulfilled') {
-        batch[j].imageBuffer = results[j].value;
-      }
-      // If rejected, keep original buffer
-    }
   }
 
   return parsedData;

@@ -7,7 +7,7 @@ import { writeDocx } from '../converter/docxWriter.js';
 
 const PHASES = ['Parsing', 'Extraction', 'Formatting', 'Writing'];
 
-export async function convert(uploadPath, downloadPath, onProgress) {
+export async function convert(uploadPath, downloadPath, onProgress, { workDir } = {}) {
   const report = (phase) => {
     if (onProgress) onProgress({ phase, phaseIndex: PHASES.indexOf(phase), total: PHASES.length });
   };
@@ -17,10 +17,19 @@ export async function convert(uploadPath, downloadPath, onProgress) {
   const buffer = await readFile(uploadPath);
   const parsed = await parsePptx(buffer);
 
-  // Phase 2: Extraction (reuse zip object from parser to avoid re-loading buffer)
+  // Phase 2: Extraction — images written to disk in workDir, not held in RAM
   report('Extraction');
-  await extractImages(parsed.zip, parsed);
+  if (workDir) {
+    await mkdir(workDir, { recursive: true });
+    await extractImages(parsed.zip, parsed, workDir);
+  } else {
+    // Fallback for tests without workDir — extract to buffers in memory
+    await extractImages(parsed.zip, parsed, null);
+  }
   await optimizeImages(parsed);
+
+  // Release the zip object to free memory
+  parsed.zip = null;
 
   // Phase 3: Formatting
   report('Formatting');
@@ -28,7 +37,7 @@ export async function convert(uploadPath, downloadPath, onProgress) {
   resolveColors(parsed);
   applyTypographyScaling(parsed);
 
-  // Phase 4: Writing
+  // Phase 4: Writing — reads each image from disk one at a time
   report('Writing');
   const docxBuffer = await writeDocx(parsed);
   await mkdir(path.dirname(downloadPath), { recursive: true });

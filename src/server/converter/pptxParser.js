@@ -1,4 +1,6 @@
 import JSZip from 'jszip';
+import fs from 'node:fs';
+import path from 'node:path';
 import { DOMParser } from '@xmldom/xmldom';
 import {
   child, children, descendant, descendants,
@@ -829,23 +831,46 @@ function safeZipPath(imagePath) {
   return result;
 }
 
-export async function extractImages(zipOrBuffer, parsedData) {
+// Extract images from the PPTX zip to disk files in workDir.
+// If workDir is provided, writes files to disk (el.imageFile = path).
+// If workDir is null, falls back to in-memory buffers (el.imageBuffer) for tests.
+export async function extractImages(zipOrBuffer, parsedData, workDir) {
   const zip = zipOrBuffer instanceof JSZip ? zipOrBuffer : await JSZip.loadAsync(zipOrBuffer);
-  const images = {};
+  const extracted = {}; // zipPath → diskPath or buffer
 
   for (const slide of parsedData.slides) {
     for (const el of flattenElements(slide.elements)) {
       if (el.type === 'image' && el.imagePath) {
         const normalized = safeZipPath(el.imagePath);
         if (!normalized) {
+          el.imageFile = null;
           el.imageBuffer = null;
           continue;
         }
-        const file = zip.file(normalized);
-        if (file && !images[normalized]) {
-          images[normalized] = await file.async('nodebuffer');
+
+        if (!extracted[normalized]) {
+          const file = zip.file(normalized);
+          if (file) {
+            const buf = await file.async('nodebuffer');
+            if (workDir) {
+              const filename = path.basename(normalized);
+              const diskPath = path.join(workDir, filename);
+              await fs.promises.writeFile(diskPath, buf);
+              extracted[normalized] = { file: diskPath };
+            } else {
+              extracted[normalized] = { buffer: buf };
+            }
+          }
         }
-        el.imageBuffer = images[normalized] || null;
+
+        const entry = extracted[normalized];
+        if (entry) {
+          el.imageFile = entry.file || null;
+          el.imageBuffer = entry.buffer || null;
+        } else {
+          el.imageFile = null;
+          el.imageBuffer = null;
+        }
         el.resolvedPath = normalized;
       }
     }

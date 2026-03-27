@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import JSZip from 'jszip';
 import { parsePptx, extractImages } from '../../src/server/converter/pptxParser.js';
-import { optimizeImage } from '../../src/server/converter/imageOptimizer.js';
+import { optimizeImageFile } from '../../src/server/converter/imageOptimizer.js';
+import { writeFileSync, readFileSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { buildTypographyScaler } from '../../src/server/converter/styleMapper.js';
 import {
   createSession, getSession, setUploaded, setStatus,
@@ -99,21 +101,24 @@ describe('extractImages path safety', () => {
 
 // ── Image optimizer edge cases ─────────────────────────────────
 
-describe('optimizeImage edge cases', () => {
-  it('returns original buffer for empty input', async () => {
-    const result = await optimizeImage(Buffer.alloc(0));
-    expect(result.length).toBe(0);
+describe('optimizeImageFile edge cases', () => {
+  const tmpDir = '/tmp/pamphlet-test-img-' + Date.now();
+
+  it('handles nonexistent file gracefully', async () => {
+    await expect(optimizeImageFile('/tmp/nonexistent-file.png')).resolves.toBeUndefined();
   });
 
-  it('returns original buffer for corrupt data', async () => {
-    const garbage = Buffer.from('not an image at all');
-    const result = await optimizeImage(garbage);
-    expect(result).toBe(garbage);
+  it('handles null file path gracefully', async () => {
+    await expect(optimizeImageFile(null)).resolves.toBeUndefined();
   });
 
-  it('returns original buffer for null input', async () => {
-    const result = await optimizeImage(null);
-    expect(result).toBeNull();
+  it('keeps corrupt file untouched', async () => {
+    mkdirSync(tmpDir, { recursive: true });
+    const filePath = join(tmpDir, 'corrupt.png');
+    writeFileSync(filePath, 'not an image at all');
+    await optimizeImageFile(filePath);
+    expect(readFileSync(filePath, 'utf8')).toBe('not an image at all');
+    unlinkSync(filePath);
   });
 });
 

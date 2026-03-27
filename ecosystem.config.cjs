@@ -11,7 +11,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
-        PAMPHLET_STORAGE_ROOT: '/dev/shm/pamphlet',
+        PAMPHLET_STORAGE_ROOT: '/mnt/polivoxiadata/pamphlet.polivoxia.ca',
         MAX_FILE_SIZE_MB: 50,
         CONCURRENCY_LIMIT: 3,
         MAX_QUEUE_DEPTH: 10,

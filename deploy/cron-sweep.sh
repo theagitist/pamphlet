@@ -5,7 +5,7 @@
 # Install: crontab -e
 #   */5 * * * * /home/theagitist/apps/pamphlet/deploy/cron-sweep.sh
 #
-STORAGE_ROOT="${PAMPHLET_STORAGE_ROOT:-/dev/shm/pamphlet}"
+STORAGE_ROOT="${PAMPHLET_STORAGE_ROOT:-/mnt/polivoxiadata/pamphlet.polivoxia.ca}"
 
 if [ -d "$STORAGE_ROOT" ]; then
   find "$STORAGE_ROOT" -type f -mmin +12 -delete 2>/dev/null

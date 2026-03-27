@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import {
   Document, Packer, Paragraph, TextRun, ImageRun,
   Table, TableRow, TableCell,
@@ -28,8 +29,12 @@ function shouldSkipImage(el) {
   }
 
   // Skip tiny images (decorative shapes, bullet icons, etc.)
-  if (el.imageBuffer && el.imageBuffer.length < 4096) {
-    return true;
+  const imageFile = el.imageFile || el.imageBuffer;
+  if (imageFile) {
+    const size = typeof imageFile === 'string'
+      ? (fs.existsSync(imageFile) ? fs.statSync(imageFile).size : 0)
+      : imageFile.length;
+    if (size < 4096) return true;
   }
 
   return false;
@@ -113,9 +118,14 @@ function buildUnsupportedPlaceholder(description, { keepNext = false } = {}) {
 }
 
 function buildImageParagraph(el, { keepNext = false } = {}) {
-  if (!el.imageBuffer) {
+  // Read image from disk file (not held in memory)
+  const imageFile = el.imageFile || el.imageBuffer; // backward compat for tests
+  if (!imageFile) {
     return buildUnsupportedPlaceholder(`Image: ${el.name || 'missing'}`, { keepNext });
   }
+
+  // Read the image buffer from disk at assembly time, then let GC reclaim it
+  const data = typeof imageFile === 'string' ? fs.readFileSync(imageFile) : imageFile;
 
   const width = el.width ? emuToPixels(el.width) : 400;
   const height = el.height ? emuToPixels(el.height) : 300;
@@ -139,8 +149,8 @@ function buildImageParagraph(el, { keepNext = false } = {}) {
   }
 
   const imageOpts = {
-    type: 'png', // will be overridden by actual format from buffer header
-    data: el.imageBuffer,
+    type: 'png',
+    data,
     transformation: { width: finalWidth, height: finalHeight },
   };
 

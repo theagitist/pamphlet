@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import path from 'node:path';
-import { UPLOADS_DIR, DOWNLOADS_DIR, removeFile } from './storage.js';
+import { DOWNLOADS_DIR, createWorkDir, removeFile, removeDir } from './storage.js';
 
 const sessions = new Map();
 
@@ -13,12 +13,14 @@ export function createSession() {
     throw new Error('Server is at capacity. Please try again later.');
   }
   const id = uuidv4();
+  const workDir = createWorkDir(id);
   const session = {
     id,
     uploadPath: null,
     downloadPath: path.join(DOWNLOADS_DIR, `${id}.docx`),
+    workDir,              // per-session temp dir for extracted images
     status: 'created',    // created → uploaded → queued → processing → ready → failed → expired
-    phase: null,           // current conversion phase
+    phase: null,
     phaseIndex: 0,
     totalPhases: 4,
     unsupportedObjects: [],
@@ -83,6 +85,7 @@ export function purgeSession(id) {
   if (session.hardExpiryTimer) clearTimeout(session.hardExpiryTimer);
   if (session.uploadPath) removeFile(session.uploadPath);
   if (session.downloadPath) removeFile(session.downloadPath);
+  if (session.workDir) removeDir(session.workDir);
 
   session.status = 'expired';
   sessions.delete(id);

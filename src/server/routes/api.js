@@ -85,7 +85,7 @@ router.post('/generate/:id', async (req, res) => {
     try {
       const result = await convert(session.uploadPath, session.downloadPath, (progress) => {
         updateProgress(session.id, progress);
-      });
+      }, { workDir: session.workDir });
       setStatus(session.id, 'ready', {
         unsupportedObjects: result.unsupportedObjects,
         slideCount: result.slides,
