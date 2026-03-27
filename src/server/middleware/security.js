@@ -14,4 +14,5 @@ export const securityHeaders = helmet({
     },
   },
   crossOriginEmbedderPolicy: false, // allow downloading docx files
+  xFrameOptions: false, // handled by nginx with DENY (stricter than helmet's SAMEORIGIN)
 });
