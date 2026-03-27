@@ -3,6 +3,7 @@ import path from 'node:path';
 import { parsePptx, resolveColors, resolveInheritedStyles, extractImages } from '../converter/pptxParser.js';
 import { applyTypographyScaling } from '../converter/styleMapper.js';
 import { optimizeImages } from '../converter/imageOptimizer.js';
+import { renderSmartArt } from '../converter/smartArtRenderer.js';
 import { writeDocx } from '../converter/docxWriter.js';
 
 const PHASES = ['Parsing', 'Extraction', 'Formatting', 'Writing'];
@@ -22,6 +23,8 @@ export async function convert(uploadPath, downloadPath, onProgress, { workDir } 
   if (workDir) {
     await mkdir(workDir, { recursive: true });
     await extractImages(parsed.zip, parsed, workDir);
+    // Render SmartArt diagrams as images via LibreOffice
+    await renderSmartArt(parsed, uploadPath, workDir);
   } else {
     // Fallback for tests without workDir — extract to buffers in memory
     await extractImages(parsed.zip, parsed, null);

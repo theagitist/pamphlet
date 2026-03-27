@@ -4,12 +4,6 @@ const POLL_INTERVAL = 500;
 // DOM elements
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
-const fileInfo = document.getElementById('file-info');
-const fileName = document.getElementById('file-name');
-const clearFileBtn = document.getElementById('clear-file');
-const optionsSection = document.getElementById('options-section');
-const generateSection = document.getElementById('generate-section');
-const generateBtn = document.getElementById('generate-btn');
 const progressSection = document.getElementById('progress-section');
 const progressPhase = document.getElementById('progress-phase');
 const progressStep = document.getElementById('progress-step');
@@ -22,13 +16,11 @@ const downloadLink = document.getElementById('download-link');
 const errorMessage = document.getElementById('error-message');
 const unsupportedNotice = document.getElementById('unsupported-notice');
 const startOverBtn = document.getElementById('start-over');
-const optPageNumbers = document.getElementById('opt-page-numbers');
 
-let selectedFile = null;
 let sessionId = null;
 let pollTimer = null;
 
-// ── File selection ─────────────────────────────────────────────
+// ── File selection → immediate conversion ─────────────────────
 
 dropZone.addEventListener('click', () => fileInput.click());
 
@@ -45,64 +37,38 @@ dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
   const file = e.dataTransfer.files[0];
-  if (file) selectFile(file);
+  if (file) handleFile(file);
 });
 
 fileInput.addEventListener('change', () => {
-  if (fileInput.files[0]) selectFile(fileInput.files[0]);
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
 });
 
-clearFileBtn.addEventListener('click', () => {
-  clearFile();
-});
-
-function selectFile(file) {
+function handleFile(file) {
   if (!file.name.toLowerCase().endsWith('.pptx')) {
     showError('Please select a valid .pptx PowerPoint file.');
-    document.getElementById('upload-section').hidden = true;
     return;
   }
   if (file.size > 50 * 1024 * 1024) {
     showError('File is too large (max 50 MB). Please choose a smaller file.');
-    document.getElementById('upload-section').hidden = true;
     return;
   }
-  selectedFile = file;
-  fileName.textContent = file.name;
-  fileInfo.hidden = false;
-  dropZone.hidden = true;
-  optionsSection.hidden = false;
-  generateSection.hidden = false;
+  startConversion(file);
 }
 
-function clearFile() {
-  selectedFile = null;
-  fileInput.value = '';
-  fileInfo.hidden = true;
-  dropZone.hidden = false;
-  optionsSection.hidden = true;
-  generateSection.hidden = true;
-}
+// ── Conversion pipeline ───────────────────────────────────────
 
-// ── Generate ───────────────────────────────────────────────────
-
-generateBtn.addEventListener('click', async () => {
-  if (!selectedFile) return;
-
-  generateBtn.disabled = true;
-  generateBtn.textContent = 'Preparing...';
-
+async function startConversion(file) {
   try {
-    // Show progress UI immediately for Upload phase
     showProgress();
-    updateProgressUI('Uploading...', -1, PHASES.length); // -1 to indicate pre-processing
+    updateProgressUI('Uploading...', -1, PHASES.length);
     progressFill.style.width = '2%';
 
-    // Upload with progress
-    const sessionIdResult = await uploadWithProgress(selectedFile);
-    sessionId = sessionIdResult;
+    // Upload
+    const id = await uploadWithProgress(file);
+    sessionId = id;
 
-    // Start conversion
+    // Trigger conversion
     updateProgressUI('Starting conversion...', 0, PHASES.length);
     const genRes = await fetch(`/api/generate/${sessionId}`, { method: 'POST' });
     const genData = await genRes.json();
@@ -110,7 +76,6 @@ generateBtn.addEventListener('click', async () => {
       throw new Error(genData.error || 'Generation failed');
     }
 
-    // Handle queued state
     if (genData.status === 'queued' && genData.queuePosition > 0) {
       progressPhase.textContent = 'Waiting for space to process...';
       progressStep.textContent = `Position ${genData.queuePosition}`;
@@ -121,7 +86,7 @@ generateBtn.addEventListener('click', async () => {
   } catch (err) {
     showError(err.message);
   }
-});
+}
 
 function uploadWithProgress(file) {
   return new Promise((resolve, reject) => {
@@ -131,7 +96,7 @@ function uploadWithProgress(file) {
 
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) {
-        const percent = Math.round((e.loaded / e.total) * 90); // Cap at 90% until server responds
+        const percent = Math.round((e.loaded / e.total) * 90);
         progressFill.style.width = percent + '%';
         progressStep.textContent = `${Math.round(e.loaded / 1024 / 1024)}MB / ${Math.round(e.total / 1024 / 1024)}MB`;
       }
@@ -166,8 +131,6 @@ function uploadWithProgress(file) {
 // ── Progress polling ───────────────────────────────────────────
 
 function showProgress() {
-  generateSection.hidden = true;
-  optionsSection.hidden = true;
   document.getElementById('upload-section').hidden = true;
   progressSection.hidden = false;
   resultSection.hidden = true;
@@ -177,7 +140,6 @@ function showProgress() {
 function updateProgressUI(phase, phaseIndex, total) {
   progressPhase.textContent = phase;
   if (phaseIndex === -1) {
-    // Already set by upload event listener, but fallback just in case
     if (!progressStep.textContent.includes('MB')) {
       progressStep.textContent = 'Uploading...';
     }
@@ -223,7 +185,7 @@ async function pollStatus() {
       stopPolling();
       progressFill.style.width = '100%';
       progressPhase.textContent = 'Complete';
-      setTimeout(() => showResult(data), 400);
+      setTimeout(() => autoDownload(data), 400);
     } else if (data.status === 'failed') {
       stopPolling();
       showError(data.error || 'Conversion failed.');
@@ -234,18 +196,28 @@ async function pollStatus() {
   }
 }
 
-// ── Results ────────────────────────────────────────────────────
+// ── Auto-download on completion ───────────────────────────────
 
-function showResult(data) {
+function autoDownload(data) {
+  const url = `/api/download/${sessionId}`;
+
+  // Trigger download via hidden link
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'handout.docx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  // Show result screen
   progressSection.hidden = true;
   resultSection.hidden = false;
   resultSuccess.hidden = false;
   resultError.hidden = true;
 
   resultMeta.textContent = `${data.slideCount} slides converted`;
-  downloadLink.href = `/api/download/${sessionId}`;
+  downloadLink.href = url;
 
-  // Unsupported objects notice
   if (data.unsupportedObjects && data.unsupportedObjects.length > 0) {
     unsupportedNotice.hidden = false;
     const items = data.unsupportedObjects
@@ -259,7 +231,6 @@ function showResult(data) {
 
 function showError(message) {
   progressSection.hidden = true;
-  generateSection.hidden = true;
   resultSection.hidden = false;
   resultSuccess.hidden = true;
   resultError.hidden = false;
@@ -271,19 +242,12 @@ function showError(message) {
 function resetUI() {
   stopPolling();
   sessionId = null;
-  selectedFile = null;
   fileInput.value = '';
 
-  // Reset UI
   document.getElementById('upload-section').hidden = false;
   dropZone.hidden = false;
-  fileInfo.hidden = true;
-  optionsSection.hidden = true;
-  generateSection.hidden = true;
   progressSection.hidden = true;
   resultSection.hidden = true;
-  generateBtn.disabled = false;
-  generateBtn.textContent = 'Generate Handout';
   progressFill.style.width = '0%';
 }
 

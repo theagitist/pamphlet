@@ -59,9 +59,9 @@ export function mapAlignment(pptxAlign) {
 // of the original size range. Bold/large runs are treated as headers and get
 // the upper range of the scale.
 
-const TARGET_MAX_PT = 22;   // largest heading in output
-const MAX_BODY_PT = 14;     // body text cap
-const MIN_PT = 10;          // nothing smaller than this
+const TARGET_MAX_PT = 16;   // largest heading in output
+const MAX_BODY_PT = 10;     // body text cap
+const MIN_PT = 8;           // nothing smaller than this
 
 export function buildTypographyScaler(parsedData) {
   // Collect all sizes (in hundredths of a point) from the deck

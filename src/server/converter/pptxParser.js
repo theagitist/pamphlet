@@ -441,10 +441,11 @@ function extractTextBody(txBody) {
   return paragraphs;
 }
 
-// Extract position and dimensions from spPr/xfrm (shared across shape types)
+// Extract position and dimensions from spPr/xfrm (shared across shape types).
+// graphicFrame uses p:xfrm directly instead of p:spPr/a:xfrm.
 function extractPosition(shapeNode) {
   const spPr = child(shapeNode, 'p:spPr') || child(shapeNode, 'p:grpSpPr');
-  const xfrm = spPr ? child(spPr, 'a:xfrm') : null;
+  const xfrm = (spPr ? child(spPr, 'a:xfrm') : null) || child(shapeNode, 'p:xfrm');
   const off = xfrm ? child(xfrm, 'a:off') : null;
   const ext = xfrm ? child(xfrm, 'a:ext') : null;
 
@@ -525,23 +526,82 @@ function extractElements(spTree, slideRels) {
       const position = extractPosition(node);
       elements.push({ type: 'group', elements: groupElements, position });
     } else if (matchTag(node, 'p:graphicFrame')) {
-      const position = extractPosition(node);
-      // Check for table first
-      const table = extractTable(node);
-      if (table) {
-        table.position = position;
-        elements.push(table);
-      } else {
-        const unsupported = detectUnsupported(node);
-        if (unsupported) {
-          unsupported.position = position;
-          elements.push(unsupported);
+      elements.push(...extractGraphicFrame(node, slideRels));
+    } else if (matchTag(node, 'mc:AlternateContent')) {
+      // mc:AlternateContent wraps SmartArt/charts with a fallback image.
+      // Try mc:Fallback first (contains a p:pic with the cached rendering),
+      // then fall back to mc:Choice (contains the raw graphicFrame).
+      const fallback = child(node, 'mc:Fallback');
+      const choice = child(node, 'mc:Choice');
+
+      if (fallback) {
+        // Look for a p:pic (cached image) in the fallback
+        const pic = child(fallback, 'p:pic');
+        if (pic) {
+          const img = extractPicture(pic, slideRels);
+          img.isSmartArtFallback = true;
+          elements.push(img);
+          continue;
         }
+        // Or recurse into fallback for other shape types
+        elements.push(...extractElements(fallback, slideRels));
+      } else if (choice) {
+        // No fallback — try the choice content
+        elements.push(...extractElements(choice, slideRels));
       }
     }
   }
 
   return elements;
+}
+
+function extractGraphicFrame(node, slideRels) {
+  const position = extractPosition(node);
+  // Check for table first
+  const table = extractTable(node);
+  if (table) {
+    table.position = position;
+    return [table];
+  }
+
+  // Check if this is SmartArt — try to extract as image from drawing cache
+  const graphicData = descendant(node, 'a:graphicData');
+  const uri = graphicData ? attr(graphicData, 'uri') || '' : '';
+
+  if (uri.includes('diagram')) {
+    // SmartArt: look for the drawing relationship (r:dm points to data,
+    // but we need the drawing cache). Check slide rels for a diagramDrawing
+    // relationship tied to this frame's relationships.
+    const dgmRelIds = descendant(node, 'dgm:relIds');
+    if (dgmRelIds) {
+      // Try to find a drawing cache image via the data model relationship
+      const dmId = nsAttr(dgmRelIds, 'r:dm');
+      if (dmId && slideRels[dmId]) {
+        // Store diagram info so extractImages can find the cached rendering
+        return [{
+          type: 'smartart',
+          description: `SmartArt`,
+          position,
+          diagramRels: {
+            dm: dmId,
+            lo: nsAttr(dgmRelIds, 'r:lo'),
+            qs: nsAttr(dgmRelIds, 'r:qs'),
+            cs: nsAttr(dgmRelIds, 'r:cs'),
+          },
+          slideRels,
+          width: position.cx,
+          height: position.cy,
+        }];
+      }
+    }
+  }
+
+  const unsupported = detectUnsupported(node);
+  if (unsupported) {
+    unsupported.position = position;
+    return [unsupported];
+  }
+  return [];
 }
 
 // ── Main parse function ────────────────────────────────────────
@@ -878,3 +938,4 @@ export async function extractImages(zipOrBuffer, parsedData, workDir) {
 
   return parsedData;
 }
+

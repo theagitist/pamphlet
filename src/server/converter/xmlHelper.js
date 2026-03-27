@@ -8,6 +8,7 @@ const NS = {
   rel: 'http://schemas.openxmlformats.org/package/2006/relationships',
   dgm: 'http://schemas.openxmlformats.org/drawingml/2006/diagram',
   chart: 'http://schemas.openxmlformats.org/drawingml/2006/chart',
+  mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
 };
 
 // xmldom NodeList is not iterable with for...of; convert to array

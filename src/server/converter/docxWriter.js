@@ -203,20 +203,16 @@ function buildTableParagraphs(tableEl) {
   return paragraphs;
 }
 
-// Sort elements by their spatial position on the slide (top-to-bottom, then left-to-right).
-// This ensures the Word document reads in visual order regardless of how the PPTX
-// source ordered shapes in its XML tree.
+// Sort elements by their spatial position on the slide.
+// Detects column layouts: if multiple elements share similar X positions but span
+// different Y ranges, they form columns. Each column is read top-to-bottom,
+// columns are read left-to-right. Non-columnar slides use simple Y-then-X ordering.
 //
 // Special handling:
 // - y=0 on non-shape elements (tables, unsupported) is treated as a default/unknown
-//   position and sorted after positioned elements at the same level
-// - Elements within the same horizontal band (y within ROW_THRESHOLD EMU) are grouped
-//   and sorted left-to-right, then their children read top-to-bottom within the column
+//   position and inserted after the title band
+// - Full-height images are appended at the end
 function reorderElements(elements) {
-  // Separate elements into three buckets:
-  // - positioned: have real spatial coordinates, sorted by position
-  // - unpositionedContent: tables/unsupported at y=0, inserted after title band
-  // - trailingImages: full-height/side-panel images, appended at the end
   const positioned = [];
   const unpositionedContent = [];
   const trailingImages = [];
@@ -235,42 +231,77 @@ function reorderElements(elements) {
     }
   }
 
-  // Sort positioned elements: top-to-bottom, left-to-right for same row
-  // Elements within ~5% of slide height (~343000 EMU) of each other are "same row"
-  const ROW_THRESHOLD = 350000;
-
-  positioned.sort((a, b) => {
-    const ay = a.position?.y ?? 0;
-    const by = b.position?.y ?? 0;
-
-    // If elements are in the same horizontal band, sort by x
-    if (Math.abs(ay - by) < ROW_THRESHOLD) {
-      const ax = a.position?.x ?? 0;
-      const bx = b.position?.x ?? 0;
-      return ax - bx;
-    }
-
-    return ay - by;
-  });
-
-  // Insert unpositioned content (tables, SmartArt) after the title band
-  if (unpositionedContent.length > 0 && positioned.length > 0) {
-    const firstTextEl = positioned.find(el =>
-      el.type === 'shape' && el.paragraphs?.some(p =>
-        p.runs.some(r => r.type === 'text' && r.text.trim())
-      )
-    );
-    const titleY = firstTextEl?.position?.y ?? positioned[0].position?.y ?? 0;
-
-    let insertIdx = positioned.findIndex(el =>
-      (el.position?.y ?? 0) > titleY + ROW_THRESHOLD
-    );
-    if (insertIdx === -1) insertIdx = positioned.length;
-    positioned.splice(insertIdx, 0, ...unpositionedContent);
-    return [...positioned, ...trailingImages];
+  if (positioned.length === 0) {
+    return [...unpositionedContent, ...trailingImages];
   }
 
-  return [...positioned, ...unpositionedContent, ...trailingImages];
+  // Separate title-band elements (top ~15% of slide) from body content
+  const TITLE_THRESHOLD = SLIDE_HEIGHT_EMU * 0.18;
+  const titleBand = [];
+  const bodyElements = [];
+
+  for (const el of positioned) {
+    const y = el.position?.y ?? 0;
+    if (y < TITLE_THRESHOLD) {
+      titleBand.push(el);
+    } else {
+      bodyElements.push(el);
+    }
+  }
+
+  // Sort title band simply by Y then X
+  titleBand.sort((a, b) => {
+    const dy = (a.position?.y ?? 0) - (b.position?.y ?? 0);
+    return dy !== 0 ? dy : (a.position?.x ?? 0) - (b.position?.x ?? 0);
+  });
+
+  // Detect columns in body content by clustering X positions
+  const COL_THRESHOLD = SLIDE_WIDTH_EMU * 0.08; // ~8% of slide width
+  const sorted = [];
+
+  if (bodyElements.length > 0) {
+    // Cluster body elements into columns by X position
+    const byX = [...bodyElements].sort((a, b) => (a.position?.x ?? 0) - (b.position?.x ?? 0));
+    const columns = [];
+    let currentCol = [byX[0]];
+
+    for (let i = 1; i < byX.length; i++) {
+      const prevX = currentCol[0].position?.x ?? 0;
+      const currX = byX[i].position?.x ?? 0;
+      if (Math.abs(currX - prevX) < COL_THRESHOLD) {
+        currentCol.push(byX[i]);
+      } else {
+        columns.push(currentCol);
+        currentCol = [byX[i]];
+      }
+    }
+    columns.push(currentCol);
+
+    // If we detected multiple columns, read each column top-to-bottom
+    // Otherwise fall back to simple Y-then-X ordering
+    if (columns.length > 1) {
+      for (const col of columns) {
+        col.sort((a, b) => (a.position?.y ?? 0) - (b.position?.y ?? 0));
+        sorted.push(...col);
+      }
+    } else {
+      bodyElements.sort((a, b) => {
+        const dy = (a.position?.y ?? 0) - (b.position?.y ?? 0);
+        return dy !== 0 ? dy : (a.position?.x ?? 0) - (b.position?.x ?? 0);
+      });
+      sorted.push(...bodyElements);
+    }
+  }
+
+  const result = [...titleBand, ...sorted];
+
+  // Insert unpositioned content after the title band
+  if (unpositionedContent.length > 0) {
+    const insertIdx = titleBand.length;
+    result.splice(insertIdx, 0, ...unpositionedContent);
+  }
+
+  return [...result, ...trailingImages];
 }
 
 function buildElementParagraphs(elements, { keepNext = false } = {}) {
