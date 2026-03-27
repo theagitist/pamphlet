@@ -3,27 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pamphlet</title>
+  <title>Pamphlet — PPTX to Word Handouts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <main>
     <header>
       <h1>Pamphlet</h1>
-      <p class="tagline">PowerPoint to Word handout converter</p>
+      <p class="tagline">Convert PowerPoint presentations to Word handouts</p>
     </header>
 
     <div class="privacy-notice">
-      No data is harvested or stored. Your documents are permanently deleted 10 minutes after conversion.
+      No data is stored. Files are permanently deleted 10 minutes after conversion.
     </div>
 
     <!-- Step 1: Upload -->
     <section id="upload-section" class="card">
       <div id="drop-zone" class="drop-zone">
+        <div class="drop-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </div>
         <div class="drop-zone-text">
-          <span class="drop-icon">+</span>
-          <p>Drop a <strong>.pptx</strong> file here or click to browse</p>
-          <p class="hint">Maximum 50 MB</p>
+          <p>Drop a <strong>.pptx</strong> file here</p>
+          <p class="hint">or click to browse (max 50 MB)</p>
         </div>
         <input type="file" id="file-input" accept=".pptx" hidden>
       </div>
@@ -37,7 +42,7 @@
     <section id="options-section" class="card" hidden>
       <label class="toggle">
         <input type="checkbox" id="opt-page-numbers" checked>
-        <span>Page numbers</span>
+        <span>Include page numbers in footer</span>
       </label>
     </section>
 
@@ -60,21 +65,21 @@
     <!-- Step 4: Result -->
     <section id="result-section" class="card" hidden>
       <div id="result-success" hidden>
-        <p class="result-text">Your handout is ready.</p>
+        <div class="result-text">✨ Handout Ready!</div>
         <div id="result-meta" class="result-meta"></div>
-        <a id="download-link" class="btn-primary" download="handout.docx">Download</a>
+        <div id="unsupported-notice" class="unsupported-notice" hidden></div>
+        <a id="download-link" class="btn-primary" download="handout.docx">Download .docx</a>
       </div>
       <div id="result-error" hidden>
-        <p class="result-text error-text">Conversion failed.</p>
+        <div class="result-text error-text">⚠️ Conversion failed</div>
         <p id="error-message" class="error-detail"></p>
       </div>
-      <div id="unsupported-notice" class="unsupported-notice" hidden></div>
-      <button id="start-over" class="btn-text">Start again</button>
+      <button id="start-over" class="btn-text">Start over with a new file</button>
     </section>
   </main>
 
   <footer>
-    <p>Pamphlet v0.0.1</p>
+    <p>Pamphlet v0.1.0 • Privacy First Academic Utility</p>
   </footer>
 
   <script type="module" src="./main.js"></script>

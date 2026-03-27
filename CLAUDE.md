@@ -24,6 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Strict Verbatim:** No text may be added, modified, or deleted during conversion.
 - **Visual Fidelity over Semantics:** Direct run-level formatting (font, color, size) on every text node. Never use Word `Heading` styles.
+- **Aesthetic:** Clean "saturated-pastel" theme (Coral, Teal, Yellow) with Inter typography.
+- **UI Progress:** Animated "candy bar" progress for conversion; real-time MB tracking for uploads.
 - **Typography Scaling:** Slide-sized fonts are proportionally scaled down for document readability (max 22pt heading, 14pt body cap, 10pt floor).
 - **Spatial Ordering:** Elements are sorted by Y then X position from `a:xfrm/a:off`, not XML tree order.
 - **Unsupported Objects:** Insert placeholder `[Object not supported: {Description}]` for SmartArt/charts/OLE objects.

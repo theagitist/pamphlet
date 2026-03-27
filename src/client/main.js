@@ -58,11 +58,13 @@ clearFileBtn.addEventListener('click', () => {
 
 function selectFile(file) {
   if (!file.name.toLowerCase().endsWith('.pptx')) {
-    alert('Please select a .pptx file.');
+    showError('Please select a valid .pptx PowerPoint file.');
+    document.getElementById('upload-section').hidden = true;
     return;
   }
   if (file.size > 50 * 1024 * 1024) {
-    alert('File is too large. Maximum size is 50 MB.');
+    showError('File is too large (max 50 MB). Please choose a smaller file.');
+    document.getElementById('upload-section').hidden = true;
     return;
   }
   selectedFile = file;
@@ -88,31 +90,27 @@ generateBtn.addEventListener('click', async () => {
   if (!selectedFile) return;
 
   generateBtn.disabled = true;
-  generateBtn.textContent = 'Uploading...';
+  generateBtn.textContent = 'Preparing...';
 
   try {
-    // Upload
-    const formData = new FormData();
-    formData.append('file', selectedFile);
+    // Show progress UI immediately for Upload phase
+    showProgress();
+    updateProgressUI('Uploading...', -1, PHASES.length); // -1 to indicate pre-processing
+    progressFill.style.width = '2%';
 
-    const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-    if (!uploadRes.ok) {
-      const err = await uploadRes.json();
-      throw new Error(err.error || 'Upload failed');
-    }
-
-    const { id } = await uploadRes.json();
-    sessionId = id;
+    // Upload with progress
+    const sessionIdResult = await uploadWithProgress(selectedFile);
+    sessionId = sessionIdResult;
 
     // Start conversion
-    const genRes = await fetch(`/api/generate/${id}`, { method: 'POST' });
+    updateProgressUI('Starting conversion...', 0, PHASES.length);
+    const genRes = await fetch(`/api/generate/${sessionId}`, { method: 'POST' });
     const genData = await genRes.json();
     if (!genRes.ok) {
       throw new Error(genData.error || 'Generation failed');
     }
 
-    // Show progress (may start as 'queued')
-    showProgress();
+    // Handle queued state
     if (genData.status === 'queued' && genData.queuePosition > 0) {
       progressPhase.textContent = 'Waiting for space to process...';
       progressStep.textContent = `Position ${genData.queuePosition}`;
@@ -124,6 +122,46 @@ generateBtn.addEventListener('click', async () => {
     showError(err.message);
   }
 });
+
+function uploadWithProgress(file) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 90); // Cap at 90% until server responds
+        progressFill.style.width = percent + '%';
+        progressStep.textContent = `${Math.round(e.loaded / 1024 / 1024)}MB / ${Math.round(e.total / 1024 / 1024)}MB`;
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data.id);
+        } catch (e) {
+          reject(new Error('Invalid server response'));
+        }
+      } else {
+        try {
+          const err = JSON.parse(xhr.responseText);
+          reject(new Error(err.error || 'Upload failed'));
+        } catch (e) {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
+      }
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+    xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+
+    xhr.open('POST', '/api/upload');
+    xhr.send(formData);
+  });
+}
 
 // ── Progress polling ───────────────────────────────────────────
 
@@ -138,6 +176,13 @@ function showProgress() {
 
 function updateProgressUI(phase, phaseIndex, total) {
   progressPhase.textContent = phase;
+  if (phaseIndex === -1) {
+    // Already set by upload event listener, but fallback just in case
+    if (!progressStep.textContent.includes('MB')) {
+      progressStep.textContent = 'Uploading...';
+    }
+    return;
+  }
   progressStep.textContent = `${phaseIndex + 1} / ${total}`;
   const pct = ((phaseIndex + 1) / total) * 100;
   progressFill.style.width = pct + '%';

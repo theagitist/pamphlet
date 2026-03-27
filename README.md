@@ -13,6 +13,8 @@ A privacy-first web utility that converts PowerPoint (.pptx) lecture slides into
 - **Image Support** — images extracted, optimized via sharp (82% size reduction typical), alt-text preserved
 - **Smart Layout** — slides flow naturally across pages with horizontal rule separators; `keepNext` prevents orphaned headers; short slides share pages
 - **Unsupported Object Detection** — SmartArt, charts, and embedded objects flagged with descriptive placeholders
+- **Modern UI** — clean, "saturated-pastel" aesthetic using Inter typography and responsive layout
+- **Progress Tracking** — real-time upload progress (MB/MB) and phase-based animated "candy bar" conversion progress
 - **Page Numbers** — optional footer page numbers, toggled in the UI
 
 ### Privacy & Security
@@ -88,7 +90,7 @@ All `:id` endpoints validate UUID format. Rate limits return `429` with descript
 
 - **Runtime:** Node.js >= 22
 - **Backend:** Express.js (ESM)
-- **Frontend:** Vanilla JS + CSS, built with Vite
+- **Frontend:** Vanilla JS + Modern CSS (Custom Properties, Gradients, Animations), Inter typography, built with Vite
 - **PPTX Parsing:** jszip + @xmldom/xmldom with namespace-aware XML traversal
 - **DOCX Generation:** docx (npm)
 - **Image Optimization:** sharp
