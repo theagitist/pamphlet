@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pamphlet</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Pamphlet</h1>
+      <p class="tagline">PowerPoint to Word handout converter</p>
+    </header>
+
+    <div class="privacy-notice">
+      No data is harvested or stored. Your documents are permanently deleted 10 minutes after conversion.
+    </div>
+
+    <!-- Step 1: Upload -->
+    <section id="upload-section" class="card">
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-zone-text">
+          <span class="drop-icon">+</span>
+          <p>Drop a <strong>.pptx</strong> file here or click to browse</p>
+          <p class="hint">Maximum 50 MB</p>
+        </div>
+        <input type="file" id="file-input" accept=".pptx" hidden>
+      </div>
+      <div id="file-info" class="file-info" hidden>
+        <span id="file-name"></span>
+        <button id="clear-file" class="btn-text" title="Remove file">&times;</button>
+      </div>
+    </section>
+
+    <!-- Options -->
+    <section id="options-section" class="card" hidden>
+      <label class="toggle">
+        <input type="checkbox" id="opt-page-numbers" checked>
+        <span>Page numbers</span>
+      </label>
+    </section>
+
+    <!-- Step 2: Generate -->
+    <section id="generate-section" hidden>
+      <button id="generate-btn" class="btn-primary">Generate Handout</button>
+    </section>
+
+    <!-- Step 3: Progress -->
+    <section id="progress-section" class="card" hidden>
+      <div class="progress-label">
+        <span id="progress-phase">Preparing...</span>
+        <span id="progress-step"></span>
+      </div>
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+    </section>
+
+    <!-- Step 4: Result -->
+    <section id="result-section" class="card" hidden>
+      <div id="result-success" hidden>
+        <p class="result-text">Your handout is ready.</p>
+        <div id="result-meta" class="result-meta"></div>
+        <a id="download-link" class="btn-primary" download="handout.docx">Download</a>
+      </div>
+      <div id="result-error" hidden>
+        <p class="result-text error-text">Conversion failed.</p>
+        <p id="error-message" class="error-detail"></p>
+      </div>
+      <div id="unsupported-notice" class="unsupported-notice" hidden></div>
+      <button id="start-over" class="btn-text">Start again</button>
+    </section>
+  </main>
+
+  <footer>
+    <p>Pamphlet v0.0.1</p>
+  </footer>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
