@@ -2,6 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'pamphlet',
+      cwd: '/var/www/pamphlet.polivoxia.ca',
       script: './app.js',
       instances: 1,
       autorestart: true,
