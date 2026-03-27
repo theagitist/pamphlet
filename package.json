@@ -1,0 +1,42 @@
+{
+  "name": "pamphlet",
+  "version": "0.0.1",
+  "description": "A privacy-first web utility that converts PowerPoint lecture slides into clean, editable Word handouts.",
+  "main": "app.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite build --watch & node --watch app.js",
+    "build": "vite build",
+    "start": "node app.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "pptx",
+    "docx",
+    "converter",
+    "handout",
+    "academic"
+  ],
+  "author": "",
+  "license": "CC-BY-4.0",
+  "dependencies": {
+    "@xmldom/xmldom": "^0.8.11",
+    "docx": "^9.6.1",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "jszip": "^3.10.1",
+    "multer": "^2.1.1",
+    "p-queue": "^9.1.0",
+    "sharp": "^0.34.5",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "supertest": "^7.2.2",
+    "vite": "^8.0.3",
+    "vitest": "^4.1.2"
+  }
+}
