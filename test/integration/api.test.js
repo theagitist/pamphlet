@@ -58,7 +58,7 @@ describe('API routes', () => {
 
     it('rejects generate on non-existent session', async () => {
       await request
-        .post('/api/generate/nonexistent-id')
+        .post('/api/generate/00000000-0000-0000-0000-000000000000')
         .expect(404);
     });
 
@@ -83,8 +83,14 @@ describe('API routes', () => {
 
     it('returns 404 for unknown session', async () => {
       await request
-        .get('/api/status/nonexistent-id')
+        .get('/api/status/00000000-0000-0000-0000-000000000000')
         .expect(404);
+    });
+
+    it('rejects invalid session ID format', async () => {
+      await request
+        .get('/api/status/not-a-uuid')
+        .expect(400);
     });
 
     it('eventually reaches ready status', async () => {

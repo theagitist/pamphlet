@@ -25,3 +25,13 @@ export const downloadLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Please wait a few seconds before downloading again.' },
 });
+
+// Status polling: 60 requests per minute per IP (generous but prevents abuse)
+export const statusLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many status requests.' },
+});

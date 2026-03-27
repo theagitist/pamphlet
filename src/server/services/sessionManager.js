@@ -6,8 +6,12 @@ const sessions = new Map();
 
 // Hard maximum session lifetime (30 min) — failsafe against leaked sessions
 const MAX_SESSION_LIFETIME_MS = 30 * 60 * 1000;
+const MAX_SESSIONS = 100;
 
 export function createSession() {
+  if (sessions.size >= MAX_SESSIONS) {
+    throw new Error('Server is at capacity. Please try again later.');
+  }
   const id = uuidv4();
   const session = {
     id,

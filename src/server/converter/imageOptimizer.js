@@ -59,14 +59,17 @@ export async function optimizeImage(buffer) {
 }
 
 // Walk parsed data and optimize all image buffers in place.
-// Uses allSettled so a single failed image doesn't break the entire conversion.
+// Processes in batches of 5 to limit concurrent memory usage from sharp.
+// Uses allSettled so a single failed image doesn't break the batch.
+const IMAGE_BATCH_SIZE = 5;
+
 export async function optimizeImages(parsedData) {
-  const tasks = [];
+  const items = [];
 
   function walk(elements) {
     for (const el of elements) {
       if (el.type === 'image' && el.imageBuffer) {
-        tasks.push({ el, promise: optimizeImage(el.imageBuffer) });
+        items.push(el);
       } else if (el.type === 'group' && el.elements) {
         walk(el.elements);
       }
@@ -77,12 +80,18 @@ export async function optimizeImages(parsedData) {
     walk(slide.elements);
   }
 
-  const results = await Promise.allSettled(tasks.map(t => t.promise));
-  for (let i = 0; i < tasks.length; i++) {
-    if (results[i].status === 'fulfilled') {
-      tasks[i].el.imageBuffer = results[i].value;
+  // Process in batches to avoid OOM with many large images
+  for (let i = 0; i < items.length; i += IMAGE_BATCH_SIZE) {
+    const batch = items.slice(i, i + IMAGE_BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(el => optimizeImage(el.imageBuffer))
+    );
+    for (let j = 0; j < batch.length; j++) {
+      if (results[j].status === 'fulfilled') {
+        batch[j].imageBuffer = results[j].value;
+      }
+      // If rejected, keep original buffer
     }
-    // If rejected, keep the original buffer (already set on el)
   }
 
   return parsedData;

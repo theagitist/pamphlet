@@ -544,12 +544,25 @@ function extractElements(spTree, slideRels) {
 
 // ── Main parse function ────────────────────────────────────────
 
+const MAX_UNCOMPRESSED_SIZE = 200 * 1024 * 1024; // 200MB limit on decompressed content
+
 export async function parsePptx(buffer) {
   let zip;
   try {
     zip = await JSZip.loadAsync(buffer);
   } catch (err) {
     throw new Error('Invalid or corrupted PPTX file: ' + err.message);
+  }
+
+  // Guard against zip bombs: check total uncompressed size
+  let totalUncompressed = 0;
+  zip.forEach((_path, file) => {
+    if (!file.dir && file._data?.uncompressedSize) {
+      totalUncompressed += file._data.uncompressedSize;
+    }
+  });
+  if (totalUncompressed > MAX_UNCOMPRESSED_SIZE) {
+    throw new Error('PPTX file contains too much data (possible zip bomb)');
   }
 
   // 1. Parse presentation.xml to get slide order
@@ -797,7 +810,10 @@ function stripUndefined(obj) {
 // Safely resolve a relative image path within the PPTX zip.
 // Prevents path traversal attacks by ensuring the resolved path stays under ppt/.
 function safeZipPath(imagePath) {
-  // Resolve relative segments (../media/image1.png → media/image1.png)
+  // Reject absolute paths
+  if (imagePath.startsWith('/')) return null;
+
+  // Resolve relative segments (../media/image1.png → ppt/media/image1.png)
   const segments = ('ppt/slides/' + imagePath).split('/');
   const resolved = [];
   for (const seg of segments) {
@@ -808,8 +824,8 @@ function safeZipPath(imagePath) {
     }
   }
   const result = resolved.join('/');
-  // Must stay within ppt/ directory
-  if (!result.startsWith('ppt/')) return null;
+  // Images must resolve to ppt/media/ (the standard location in PPTX)
+  if (!result.startsWith('ppt/media/')) return null;
   return result;
 }
 
