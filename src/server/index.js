@@ -3,12 +3,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initStorage, scrubAll } from './services/storage.js';
 import { purgeAll } from './services/sessionManager.js';
+import { securityHeaders } from './middleware/security.js';
 import apiRoutes from './routes/api.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export function createApp() {
   const app = express();
+
+  // Trust Cloudflare proxy for rate limiting
+  app.set('trust proxy', 1);
+
+  // Security headers
+  app.use(securityHeaders);
 
   // API routes
   app.use('/api', apiRoutes);

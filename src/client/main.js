@@ -106,13 +106,18 @@ generateBtn.addEventListener('click', async () => {
 
     // Start conversion
     const genRes = await fetch(`/api/generate/${id}`, { method: 'POST' });
+    const genData = await genRes.json();
     if (!genRes.ok) {
-      const err = await genRes.json();
-      throw new Error(err.error || 'Generation failed');
+      throw new Error(genData.error || 'Generation failed');
     }
 
-    // Show progress
+    // Show progress (may start as 'queued')
     showProgress();
+    if (genData.status === 'queued' && genData.queuePosition > 0) {
+      progressPhase.textContent = 'Waiting for space to process...';
+      progressStep.textContent = `Position ${genData.queuePosition}`;
+      progressFill.style.width = '5%';
+    }
     startPolling();
 
   } catch (err) {
@@ -163,7 +168,11 @@ async function pollStatus() {
 
     const data = await res.json();
 
-    if (data.status === 'processing') {
+    if (data.status === 'queued') {
+      progressPhase.textContent = 'Waiting for space to process...';
+      progressStep.textContent = data.queue ? `${data.queue.waiting} ahead` : '';
+      progressFill.style.width = '5%';
+    } else if (data.status === 'processing') {
       updateProgressUI(data.phase || 'Processing...', data.phaseIndex || 0, data.totalPhases || 4);
     } else if (data.status === 'ready') {
       stopPolling();

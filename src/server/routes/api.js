@@ -2,6 +2,7 @@ import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { upload } from '../middleware/upload.js';
+import { uploadLimiter, downloadLimiter } from '../middleware/rateLimiter.js';
 import {
   createSession, getSession, setUploaded,
   updateProgress, setStatus, startExpiryTimer,
@@ -12,7 +13,7 @@ import { convert } from '../services/converter.js';
 const router = Router();
 
 // POST /api/upload — upload a .pptx file, returns session id
-router.post('/upload', upload.single('file'), (req, res) => {
+router.post('/upload', uploadLimiter, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
@@ -110,7 +111,7 @@ router.get('/status/:id', (req, res) => {
 });
 
 // GET /api/download/:id — download converted docx
-router.get('/download/:id', (req, res) => {
+router.get('/download/:id', downloadLimiter, (req, res) => {
   const session = getSession(req.params.id);
   if (!session) {
     return res.status(404).json({ error: 'Session not found' });
