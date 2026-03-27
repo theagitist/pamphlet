@@ -17,9 +17,9 @@ export async function convert(uploadPath, downloadPath, onProgress) {
   const buffer = await readFile(uploadPath);
   const parsed = await parsePptx(buffer);
 
-  // Phase 2: Extraction
+  // Phase 2: Extraction (reuse zip object from parser to avoid re-loading buffer)
   report('Extraction');
-  await extractImages(buffer, parsed);
+  await extractImages(parsed.zip, parsed);
   await optimizeImages(parsed);
 
   // Phase 3: Formatting

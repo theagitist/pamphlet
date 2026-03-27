@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+
+// ZIP magic bytes: PK\x03\x04
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 import { upload } from '../middleware/upload.js';
 import { uploadLimiter, downloadLimiter } from '../middleware/rateLimiter.js';
 import {
@@ -16,6 +19,17 @@ const router = Router();
 router.post('/upload', uploadLimiter, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  // Validate ZIP magic bytes to ensure it's a real PPTX (ZIP container)
+  const fd = fs.openSync(req.file.path, 'r');
+  const header = Buffer.alloc(4);
+  fs.readSync(fd, header, 0, 4, 0);
+  fs.closeSync(fd);
+
+  if (!header.equals(ZIP_MAGIC)) {
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: 'File is not a valid .pptx document' });
   }
 
   const session = createSession();
@@ -62,7 +76,7 @@ router.post('/generate/:id', async (req, res) => {
       startExpiryTimer(session.id, parseInt(process.env.CLEANUP_MINUTES, 10) || 10);
     } catch (err) {
       console.error('Conversion failed:', err);
-      setStatus(session.id, 'failed', { error: err.message });
+      setStatus(session.id, 'failed', { error: 'Conversion failed. The file may be corrupted or use unsupported features.' });
       startExpiryTimer(session.id, 1);
     }
   });
@@ -129,6 +143,14 @@ router.get('/download/:id', downloadLimiter, (req, res) => {
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
 
   const stream = fs.createReadStream(session.downloadPath);
+  stream.on('error', (err) => {
+    console.error('Download stream error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Download failed' });
+    } else {
+      res.destroy();
+    }
+  });
   stream.pipe(res);
 });
 

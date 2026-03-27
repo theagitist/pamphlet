@@ -545,16 +545,29 @@ function extractElements(spTree, slideRels) {
 // ── Main parse function ────────────────────────────────────────
 
 export async function parsePptx(buffer) {
-  const zip = await JSZip.loadAsync(buffer);
+  let zip;
+  try {
+    zip = await JSZip.loadAsync(buffer);
+  } catch (err) {
+    throw new Error('Invalid or corrupted PPTX file: ' + err.message);
+  }
 
   // 1. Parse presentation.xml to get slide order
-  const presentationXml = await zip.file('ppt/presentation.xml').async('text');
+  const presentationFile = zip.file('ppt/presentation.xml');
+  if (!presentationFile) {
+    throw new Error('Invalid PPTX: missing ppt/presentation.xml');
+  }
+  const presentationXml = await presentationFile.async('text');
   const presDoc = parseXml(presentationXml);
   const sldIdLst = descendant(presDoc, 'p:sldIdLst');
   const sldIds = sldIdLst ? children(sldIdLst, 'p:sldId') : [];
 
   // 2. Parse presentation relationships
-  const presRelsXml = await zip.file('ppt/_rels/presentation.xml.rels').async('text');
+  const presRelsFile = zip.file('ppt/_rels/presentation.xml.rels');
+  if (!presRelsFile) {
+    throw new Error('Invalid PPTX: missing presentation relationships');
+  }
+  const presRelsXml = await presRelsFile.async('text');
   const presRels = parseRels(presRelsXml);
 
   // 3. Parse theme
@@ -642,6 +655,7 @@ export async function parsePptx(buffer) {
     theme,
     masterStyles,
     unsupportedObjects,
+    zip, // reuse in extractImages to avoid re-loading buffer
   };
 }
 
@@ -780,16 +794,37 @@ function stripUndefined(obj) {
 
 // ── Extract image buffers ──────────────────────────────────────
 
-export async function extractImages(buffer, parsedData) {
-  const zip = await JSZip.loadAsync(buffer);
+// Safely resolve a relative image path within the PPTX zip.
+// Prevents path traversal attacks by ensuring the resolved path stays under ppt/.
+function safeZipPath(imagePath) {
+  // Resolve relative segments (../media/image1.png → media/image1.png)
+  const segments = ('ppt/slides/' + imagePath).split('/');
+  const resolved = [];
+  for (const seg of segments) {
+    if (seg === '..') {
+      if (resolved.length > 0) resolved.pop();
+    } else if (seg !== '.' && seg !== '') {
+      resolved.push(seg);
+    }
+  }
+  const result = resolved.join('/');
+  // Must stay within ppt/ directory
+  if (!result.startsWith('ppt/')) return null;
+  return result;
+}
+
+export async function extractImages(zipOrBuffer, parsedData) {
+  const zip = zipOrBuffer instanceof JSZip ? zipOrBuffer : await JSZip.loadAsync(zipOrBuffer);
   const images = {};
 
   for (const slide of parsedData.slides) {
     for (const el of flattenElements(slide.elements)) {
       if (el.type === 'image' && el.imagePath) {
-        const fullPath = 'ppt/' + el.imagePath.replace(/^\.\.\//, '').replace(/^\.\//, '');
-        // Normalize path
-        const normalized = fullPath.replace(/\/\.\.\//g, '/').replace(/ppt\/slides\/\.\.\//, 'ppt/');
+        const normalized = safeZipPath(el.imagePath);
+        if (!normalized) {
+          el.imageBuffer = null;
+          continue;
+        }
         const file = zip.file(normalized);
         if (file && !images[normalized]) {
           images[normalized] = await file.async('nodebuffer');

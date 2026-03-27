@@ -4,6 +4,9 @@ import { UPLOADS_DIR, DOWNLOADS_DIR, removeFile } from './storage.js';
 
 const sessions = new Map();
 
+// Hard maximum session lifetime (30 min) — failsafe against leaked sessions
+const MAX_SESSION_LIFETIME_MS = 30 * 60 * 1000;
+
 export function createSession() {
   const id = uuidv4();
   const session = {
@@ -17,7 +20,14 @@ export function createSession() {
     unsupportedObjects: [],
     createdAt: Date.now(),
     expiryTimer: null,
+    hardExpiryTimer: null,
   };
+
+  // Hard expiry: purge no matter what after MAX_SESSION_LIFETIME_MS
+  session.hardExpiryTimer = setTimeout(() => {
+    purgeSession(id);
+  }, MAX_SESSION_LIFETIME_MS);
+
   sessions.set(id, session);
   return session;
 }
@@ -66,6 +76,7 @@ export function purgeSession(id) {
   if (!session) return;
 
   if (session.expiryTimer) clearTimeout(session.expiryTimer);
+  if (session.hardExpiryTimer) clearTimeout(session.hardExpiryTimer);
   if (session.uploadPath) removeFile(session.uploadPath);
   if (session.downloadPath) removeFile(session.downloadPath);
 

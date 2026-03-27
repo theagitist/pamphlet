@@ -58,18 +58,15 @@ export async function optimizeImage(buffer) {
   }
 }
 
-// Walk parsed data and optimize all image buffers in place
+// Walk parsed data and optimize all image buffers in place.
+// Uses allSettled so a single failed image doesn't break the entire conversion.
 export async function optimizeImages(parsedData) {
-  const promises = [];
+  const tasks = [];
 
   function walk(elements) {
     for (const el of elements) {
       if (el.type === 'image' && el.imageBuffer) {
-        promises.push(
-          optimizeImage(el.imageBuffer).then(optimized => {
-            el.imageBuffer = optimized;
-          })
-        );
+        tasks.push({ el, promise: optimizeImage(el.imageBuffer) });
       } else if (el.type === 'group' && el.elements) {
         walk(el.elements);
       }
@@ -80,6 +77,13 @@ export async function optimizeImages(parsedData) {
     walk(slide.elements);
   }
 
-  await Promise.all(promises);
+  const results = await Promise.allSettled(tasks.map(t => t.promise));
+  for (let i = 0; i < tasks.length; i++) {
+    if (results[i].status === 'fulfilled') {
+      tasks[i].el.imageBuffer = results[i].value;
+    }
+    // If rejected, keep the original buffer (already set on el)
+  }
+
   return parsedData;
 }
