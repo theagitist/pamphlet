@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css">
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
   <main>
@@ -23,8 +23,11 @@
 
     <!-- Security Check -->
     <section id="security-section" class="card">
-      <div class="result-text" style="font-size: 1rem; margin-bottom: 1rem;">Verification required</div>
-      <div class="cf-turnstile" data-sitekey="0x4AAAAAACw30llltGbSudgl" data-callback="onTurnstileSuccess"></div>
+      <div class="result-text" style="font-size: 1.1rem; margin-bottom: 1rem;">Security verification</div>
+      <div id="turnstile-widget"></div>
+      <noscript>
+        <p class="error-text" style="font-size: 0.85rem; margin-top: 1rem;">Please enable JavaScript to complete the security verification.</p>
+      </noscript>
     </section>
 
     <!-- Step 1: Upload -->

@@ -3,7 +3,7 @@ import helmet from 'helmet';
 export const securityHeaders = helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
+      defaultSrc: ["'self'", "https://challenges.cloudflare.com"],
       scriptSrc: ["'self'", "https://challenges.cloudflare.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
       imgSrc: ["'self'", 'data:', "https://challenges.cloudflare.com"],

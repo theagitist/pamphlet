@@ -36,6 +36,27 @@ window.onTurnstileSuccess = function(token) {
   document.getElementById('upload-section').hidden = false;
 };
 
+// Explicit Turnstile render
+function renderTurnstile() {
+  if (window.turnstile) {
+    window.turnstile.render('#turnstile-widget', {
+      sitekey: '0x4AAAAAACw30llltGbSudgl',
+      callback: 'onTurnstileSuccess',
+    });
+  }
+}
+
+// Check for turnstile and render
+function checkTurnstile() {
+  if (window.turnstile) {
+    renderTurnstile();
+  } else {
+    setTimeout(checkTurnstile, 100);
+  }
+}
+
+checkTurnstile();
+
 // ── File selection ─────────────────────────────────────────────
 
 dropZone.addEventListener('click', () => fileInput.click());
@@ -286,7 +307,8 @@ function resetUI() {
   fileInput.value = '';
   turnstileToken = null;
   if (window.turnstile) {
-    window.turnstile.reset();
+    document.getElementById('turnstile-widget').innerHTML = '';
+    renderTurnstile();
   }
 
   // Reset UI
