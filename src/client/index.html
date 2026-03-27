@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css">
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
   <main>
@@ -21,17 +20,8 @@
       No data is stored. Files are permanently deleted 10 minutes after conversion.
     </div>
 
-    <!-- Security Check -->
-    <section id="security-section" class="card">
-      <div class="result-text" style="font-size: 1.1rem; margin-bottom: 1rem;">Security verification</div>
-      <div id="turnstile-widget"></div>
-      <noscript>
-        <p class="error-text" style="font-size: 0.85rem; margin-top: 1rem;">Please enable JavaScript to complete the security verification.</p>
-      </noscript>
-    </section>
-
     <!-- Step 1: Upload -->
-    <section id="upload-section" class="card" hidden>
+    <section id="upload-section" class="card">
       <div id="drop-zone" class="drop-zone">
         <div class="drop-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>

@@ -27,35 +27,6 @@ const optPageNumbers = document.getElementById('opt-page-numbers');
 let selectedFile = null;
 let sessionId = null;
 let pollTimer = null;
-let turnstileToken = null;
-
-// Turnstile callback
-window.onTurnstileSuccess = function(token) {
-  turnstileToken = token;
-  document.getElementById('security-section').hidden = true;
-  document.getElementById('upload-section').hidden = false;
-};
-
-// Explicit Turnstile render
-function renderTurnstile() {
-  if (window.turnstile) {
-    window.turnstile.render('#turnstile-widget', {
-      sitekey: '0x4AAAAAACw30llltGbSudgl',
-      callback: 'onTurnstileSuccess',
-    });
-  }
-}
-
-// Check for turnstile and render
-function checkTurnstile() {
-  if (window.turnstile) {
-    renderTurnstile();
-  } else {
-    setTimeout(checkTurnstile, 100);
-  }
-}
-
-checkTurnstile();
 
 // ── File selection ─────────────────────────────────────────────
 
@@ -188,9 +159,6 @@ function uploadWithProgress(file) {
     xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
 
     xhr.open('POST', '/api/upload');
-    if (turnstileToken) {
-      xhr.setRequestHeader('X-Turnstile-Token', turnstileToken);
-    }
     xhr.send(formData);
   });
 }
@@ -305,15 +273,9 @@ function resetUI() {
   sessionId = null;
   selectedFile = null;
   fileInput.value = '';
-  turnstileToken = null;
-  if (window.turnstile) {
-    document.getElementById('turnstile-widget').innerHTML = '';
-    renderTurnstile();
-  }
 
   // Reset UI
-  document.getElementById('security-section').hidden = false;
-  document.getElementById('upload-section').hidden = true;
+  document.getElementById('upload-section').hidden = false;
   dropZone.hidden = false;
   fileInfo.hidden = true;
   optionsSection.hidden = true;
