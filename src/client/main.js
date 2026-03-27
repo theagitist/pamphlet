@@ -27,6 +27,14 @@ const optPageNumbers = document.getElementById('opt-page-numbers');
 let selectedFile = null;
 let sessionId = null;
 let pollTimer = null;
+let turnstileToken = null;
+
+// Turnstile callback
+window.onTurnstileSuccess = function(token) {
+  turnstileToken = token;
+  document.getElementById('security-section').hidden = true;
+  document.getElementById('upload-section').hidden = false;
+};
 
 // ── File selection ─────────────────────────────────────────────
 
@@ -159,6 +167,9 @@ function uploadWithProgress(file) {
     xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
 
     xhr.open('POST', '/api/upload');
+    if (turnstileToken) {
+      xhr.setRequestHeader('X-Turnstile-Token', turnstileToken);
+    }
     xhr.send(formData);
   });
 }
@@ -268,14 +279,19 @@ function showError(message) {
 
 // ── Start over ─────────────────────────────────────────────────
 
-startOverBtn.addEventListener('click', () => {
+function resetUI() {
   stopPolling();
   sessionId = null;
   selectedFile = null;
   fileInput.value = '';
+  turnstileToken = null;
+  if (window.turnstile) {
+    window.turnstile.reset();
+  }
 
   // Reset UI
-  document.getElementById('upload-section').hidden = false;
+  document.getElementById('security-section').hidden = false;
+  document.getElementById('upload-section').hidden = true;
   dropZone.hidden = false;
   fileInfo.hidden = true;
   optionsSection.hidden = true;
@@ -285,4 +301,6 @@ startOverBtn.addEventListener('click', () => {
   generateBtn.disabled = false;
   generateBtn.textContent = 'Generate Handout';
   progressFill.style.width = '0%';
-});
+}
+
+startOverBtn.addEventListener('click', resetUI);

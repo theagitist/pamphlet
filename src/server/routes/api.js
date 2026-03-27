@@ -5,6 +5,7 @@ import path from 'node:path';
 // ZIP magic bytes: PK\x03\x04
 const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 import { upload } from '../middleware/upload.js';
+import { verifyTurnstile } from '../middleware/turnstile.js';
 import { uploadLimiter, downloadLimiter, statusLimiter } from '../middleware/rateLimiter.js';
 import {
   createSession, getSession, setUploaded,
@@ -26,7 +27,7 @@ router.param('id', (req, res, next, id) => {
 });
 
 // POST /api/upload — upload a .pptx file, returns session id
-router.post('/upload', uploadLimiter, upload.single('file'), (req, res) => {
+router.post('/upload', uploadLimiter, verifyTurnstile, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }

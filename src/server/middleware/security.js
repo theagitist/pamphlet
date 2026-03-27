@@ -4,11 +4,12 @@ export const securityHeaders = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://challenges.cloudflare.com"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "https://challenges.cloudflare.com"],
       fontSrc: ["'self'"],
+      frameSrc: ["'self'", "https://challenges.cloudflare.com"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
     },
