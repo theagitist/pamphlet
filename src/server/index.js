@@ -30,7 +30,7 @@ export function createApp() {
 export function startServer(app, port) {
   initStorage();
 
-  const server = app.listen(port, () => {
+  const server = app.listen(port, '127.0.0.1', () => {
     console.log(`Pamphlet listening on port ${port}`);
   });
 
